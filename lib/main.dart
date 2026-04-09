@@ -1,59 +1,19 @@
 import 'package:flutter/material.dart';
+import 'task_repository.dart';
 
 void main() {
   runApp(MyApp());
 }
 
 class MyApp extends StatelessWidget {
-  final List<Task> tasks = [
-    Task(title: "Isc na studia", deadline: "10:00", done: true, priority: "high"),
-    Task(title: "Zrobic obiad", deadline: "15:00", done: false, priority: "high"),
-    Task(title: "Zrobic zadanie domowe", deadline: "18:00", done: true, priority: "medium"),
-    Task(title: "Isc na silownie", deadline: "21:00", done: false, priority: "low"),
-  ];
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    int doneCount = tasks.where((t) => t.done).length;
     return MaterialApp(
-      title: 'Flutter Demo',
-      home: Center(
-        child: ListView.builder(
-          itemCount: tasks.length,
-          itemBuilder: (context, index) {
-            final task = tasks[index];
-
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (index == 0) Text("Masz dziś ${tasks.length} zadania, ($doneCount zrobione)"),
-                if (index == 0)
-                  Text(
-                    "Dzisiejsze zadania",
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-                  ),
-
-                TaskCard(
-                  title: task.title,
-                  subtitle: "termin: ${task.deadline} | priorytet ${task.priority}",
-                  icon: task.done ? Icons.check_circle : Icons.radio_button_unchecked,
-                ),
-              ],
-            );
-          },
-          ),
-        )
+      home: HomeScreen(),
     );
   }
-}
-
-class Task {
-  final String title;
-  final String deadline;
-  final bool done;
-  final String priority;
-
-  Task({required this.title, required this.deadline, required this.done, required this.priority});
 }
 
 class TaskCard extends StatelessWidget {
@@ -80,6 +40,143 @@ class TaskCard extends StatelessWidget {
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         subtitle: Text(subtitle),
+      ),
+    );
+  }
+}
+
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+
+  @override
+  Widget build(BuildContext context) {
+    int doneCount = TaskRepository.tasks.where((t) => t.done).length;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text("KrakFlow"),
+      ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: EdgeInsets.all(12),
+            child: Text(
+              "Masz dziś ${TaskRepository.tasks.length} zadania, ($doneCount zrobione)",
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 12),
+            child: Text(
+              "Dzisiejsze zadania",
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            ),
+          ),
+          SizedBox(height: 8),
+          Expanded(
+            child: ListView.builder(
+              itemCount: TaskRepository.tasks.length,
+              itemBuilder: (context, index) {
+                final task = TaskRepository.tasks[index];
+                return TaskCard(
+                  title: task.title,
+                  subtitle: "termin: ${task.deadline} | priorytet ${task.priority}",
+                  icon: task.done
+                      ? Icons.check_circle
+                      : Icons.radio_button_unchecked,
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          final Task? newTask = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => AddTaskScreen(),
+            ),
+          );
+
+          if (newTask != null) {
+            setState(() {
+              TaskRepository.tasks.add(newTask);
+            });
+          }
+        },
+        child: Icon(Icons.add),
+      ),
+    );
+  }
+}
+
+class AddTaskScreen extends StatelessWidget {
+  AddTaskScreen({super.key});
+
+  final TextEditingController titleController = TextEditingController();
+  final TextEditingController deadlineController = TextEditingController();
+  final TextEditingController priorityController = TextEditingController();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text("Nowe zadanie"),
+      ),
+      body: Padding(
+        padding: EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: titleController,
+              decoration: InputDecoration(
+                labelText: "Tytuł zadania",
+                border: OutlineInputBorder(),
+              ),
+            ),
+            SizedBox(height: 12),
+
+            TextField(
+              controller: deadlineController,
+              decoration: InputDecoration(
+                labelText: "Termin",
+                border: OutlineInputBorder(),
+              ),
+            ),
+            SizedBox(height: 12),
+
+            TextField(
+              controller: priorityController,
+              decoration: InputDecoration(
+                labelText: "Priorytet",
+                border: OutlineInputBorder(),
+              ),
+            ),
+            SizedBox(height: 20),
+
+            ElevatedButton(
+              onPressed: () {
+                final newTask = Task(
+                  title: titleController.text,
+                  deadline: deadlineController.text,
+                  done: false,
+                  priority: priorityController.text,
+                );
+
+                Navigator.pop(context, newTask);
+              },
+              child: Text("Zapisz"),
+            ),
+          ],
+        ),
       ),
     );
   }
