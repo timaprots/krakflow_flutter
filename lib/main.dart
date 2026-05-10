@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'task_repository.dart';
+import 'task_api_service.dart';
 
 void main() {
   runApp(MyApp());
@@ -69,6 +70,13 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   String selectedFilter = "wszystkie";
+  late Future<List<Task>> futureTasks;
+
+  @override
+  void initState() {
+    super.initState();
+    futureTasks = TaskApiService.fetchTasks();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -202,52 +210,68 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
           Expanded(
-            child: ListView.builder(
-              itemCount: filteredTasks.length,
-              itemBuilder: (context, index) {
-                final task = filteredTasks[index];
-                return Dismissible(
-                  key: ValueKey(task.title),
-                  direction: DismissDirection.endToStart,
+            child: FutureBuilder<List<Task>>(
+              future: futureTasks,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError) {
+                  return Center(child: Text("Błąd: ${snapshot.error}"));
+                }
+                if (!snapshot.hasData) {
+                  return Center(child: CircularProgressIndicator(),);
+                }
 
-                  onDismissed: (direction) {
-                    setState(() {
-                      TaskRepository.tasks.remove(task);
-                    });
+                final tasks = snapshot.data!;
+                return ListView.builder(
+                  itemCount: tasks.length,
+                  itemBuilder: (context, index) {
+                    final task = tasks[index];
 
-                    ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            "Usunięto zadanie: ${task.title}",
+                    return Dismissible(
+                      key: ValueKey(task.title),
+                      direction: DismissDirection.endToStart,
+
+                      onDismissed: (direction) {
+                        setState(() {
+                          tasks.remove(task);
+                        });
+
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text("Usunięto zadanie: ${task.title}"),
                           ),
-                        ),
+                        );
+                      },
+
+                      child: TaskCard(
+                        title: task.title,
+                        subtitle: "termin: ${task.deadline} | priorytet ${task.priority}",
+                        done: task.done,
+                        onChanged: (value) {
+                          setState(() {
+                            task.done = value!;
+                          });
+                        },
+
+                        onTap: () async {
+                          final Task? updatedTask = await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  EditTaskScreen(task: task),
+                            ),
+                          );
+
+                          if (updatedTask != null) {
+                            setState(() {
+                              tasks[index] = updatedTask;
+                            });
+                          }
+                        },
+                      ),
                     );
                   },
-
-                  child: TaskCard(
-                    title: task.title,
-                    subtitle: "termin: ${task.deadline} | priorytet ${task.priority}",
-                    done: task.done,
-                    onChanged: (value) {
-                      setState(() {
-                        task.done = value!;
-                      });
-                    },
-
-                    onTap: () async {
-                      final Task? updatedTask = await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => EditTaskScreen(task: task),
-                        ),
-                      );
-                      if (updatedTask != null) {
-                        setState(() {
-                          TaskRepository.tasks[index] = updatedTask;
-                        });
-                      }
-                    },
-                ),
                 );
               },
             ),
